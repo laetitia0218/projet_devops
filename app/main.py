@@ -1,27 +1,30 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from app.db import get_connection, check_db_health, init_db
 
-app = FastAPI(
-    title="Producteurs & Restaurants API",
-    version=os.getenv("APP_VERSION", "v1.0.0"),
-    description="API minimale pour la gestion des commandes et produits (TP DevOps M1)"
-)
-
-# Modèle pour la création de commande
-class OrderCreate(BaseModel):
-    product_id: int
-    quantity: int
-
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Initialisation automatique des tables au démarrage si la BDD est prête."""
     try:
         init_db()
     except Exception:
         # En mode test ou si la base n'est pas encore prête, on ne bloque pas le démarrage
         pass
+    yield
+
+app = FastAPI(
+    title="Producteurs & Restaurants API",
+    version=os.getenv("APP_VERSION", "v1.0.0"),
+    description="API minimale pour la gestion des commandes et produits (TP DevOps M1)",
+    lifespan=lifespan
+)
+
+# Modèle pour la création de commande
+class OrderCreate(BaseModel):
+    product_id: int
+    quantity: int
 
 @app.get("/health")
 def health():
