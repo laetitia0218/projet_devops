@@ -20,3 +20,9 @@ def test_order_negative_or_zero_quantity():
 
     response_neg = client.post("/orders", json={"product_id": 1, "quantity": -5})
     assert response_neg.status_code == 400
+
+def test_stock_negative_update_rejected():
+    """Vérifie que la déclaration d'un stock négatif est refusée avec une erreur 400."""
+    response = client.patch("/products/1/stock", json={"stock": -10})
+    assert response.status_code == 400
+    assert "Le stock ne peut pas etre negatif" in response.json()["detail"]
