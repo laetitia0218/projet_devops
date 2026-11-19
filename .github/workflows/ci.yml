@@ -1,15 +1,24 @@
+
 name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "feat/**", "fix/**", "docs/**" ]
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+      - "docs/**"
+      - "test/**"
+      - "ci/**"
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -18,7 +27,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -33,6 +42,7 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,24 +58,102 @@ jobs:
     name: Deploy & Smoke Test (Staging)
     runs-on: ubuntu-latest
     needs: build
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Simulate Deployment to Staging
+      - name: Start staging environment
         run: |
-          echo "=========================================="
-          echo "Déploiement en cours sur l'environnement Staging..."
-          echo "Image Docker versionnée : projet-devops-api:${{ github.sha }}"
-          echo "Conteneurs démarrés avec succès."
-          echo "=========================================="
+          docker compose up -d --build
+          docker compose ps
 
-      - name: Execute Smoke Test
+      - name: Wait for API and PostgreSQL
         run: |
-          echo "=========================================="
-          echo "Exécution des Smoke Tests sur Staging..."
-          echo "Test 1 : GET /health -> Réponse 200 OK"
-          echo "Test 2 : Vérification connectivité PostgreSQL -> OK"
-          echo "Test 3 : Simulation parcours commande US-42 -> OK"
-          echo "Smoke Tests validés : prêt pour approbation production !"
-          echo "=========================================="
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["database"] == "connected"'; then
+              echo "API et PostgreSQL disponibles"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker compose logs
+          exit 1
+
+      - name: Seed 1200 products
+        run: |
+          docker compose exec -T api python -m app.seed
+
+      - name: Smoke test health
+        run: |
+          curl -fsS http://localhost:8000/health
+
+      - name: Smoke test products
+        run: |
+          curl -fsS http://localhost:8000/products
+
+      - name: Smoke test stock US-42
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.request
+          import urllib.error
+
+          base = "http://localhost:8000"
+
+          def request(method, path, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              req = urllib.request.Request(
+                  base + path,
+                  data=data,
+                  headers={"Content-Type": "application/json"},
+                  method=method,
+              )
+              try:
+                  with urllib.request.urlopen(req) as response:
+                      return response.status, json.load(response)
+              except urllib.error.HTTPError as error:
+                  return error.code, json.load(error)
+
+          status, product = request(
+              "PATCH",
+              "/products/1/stock",
+              {"stock": 5},
+          )
+          assert status == 200, (status, product)
+
+          status, order = request(
+              "POST",
+              "/orders",
+              {"product_id": 1, "quantity": 2},
+          )
+          assert status == 201, (status, order)
+
+          status, products = request("GET", "/products")
+          assert status == 200
+          product = next(p for p in products if p["id"] == 1)
+          assert product["stock"] == 3, product
+
+          status, rejected = request(
+              "POST",
+              "/orders",
+              {"product_id": 1, "quantity": 10},
+          )
+          assert status == 400, (status, rejected)
+
+          status, products = request("GET", "/products")
+          product = next(p for p in products if p["id"] == 1)
+          assert product["stock"] == 3, product
+
+          print("Smoke tests US-42 réussis")
+          PY
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop staging environment
+        if: always()
+        run: docker compose down -v
