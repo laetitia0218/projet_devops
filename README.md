@@ -63,7 +63,8 @@ docker-compose exec api pytest -v
 |---|---|---|
 | `GET` | `/health` | **Règle des 10 secondes (T3)** : renvoie l'état du service, version Git et état PostgreSQL |
 | `GET` | `/products?limit=50` | Liste paginée des produits disponibles |
-| `POST` | `/orders` | Crée une commande pour un produit (`{"product_id": 1, "quantity": 2}`) |
+| `PATCH` | `/products/{id}/stock` | **US-42** : déclaration et mise à jour du stock d'un produit par le producteur |
+| `POST` | `/orders` | **US-42** : crée une commande avec contrôle de stock et décrémentation atomique |
 | `GET` | `/docs` | Documentation interactive Swagger / OpenAPI |
 
 ---
@@ -77,3 +78,8 @@ L'ensemble des choix d'architecture et de gouvernance sont consignés dans les l
 * **[T3 — Règles de gestion & Guide de contribution](CONTRIBUTING.md)** : règles de relecture, DoD, format des branches/commits, gestion des secrets et encadrement du freelance.
 * **[T3 — Configuration GitHub](docs/config/README.md)** : protection de la branche `main` et environnements.
 * **[T4 — Conception du pipeline CI/CD](docs/pipeline.md)** : schéma du pipeline, étapes bloquantes et procédure de retour arrière (< 5 min).
+* **[Partie 2 — Découpage US-42 & Livrables de Release](docs/releases/plan-US-42.md)** :
+  * [Fiche initiale (v1.0.0)](docs/releases/initial.md)
+  * [Plan de réalisation US-42](docs/releases/plan-US-42.md)
+  * [Fiche de mise en production (v1.1.0)](docs/releases/v1.1.0.md)
+* **[Registre des incidents](docs/incidents.md)** : incident historique d'août et fiches cartes incidents.
