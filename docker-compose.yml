@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: devops_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: devops_db
+      POSTGRES_USER: devops_user
+      POSTGRES_PASSWORD: devops_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devops_user -d devops_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: devops_api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: devops_db
+      DB_USER: devops_user
+      DB_PASSWORD: devops_password
+      APP_PORT: 8000
+      APP_VERSION: v1.0.0
+      APP_COMMIT: local
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

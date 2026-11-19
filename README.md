@@ -1,33 +1,79 @@
-# Projet DevOps ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Start-up Producteurs & Consommateurs
+# Projet DevOps — Start-up Producteurs & Consommateurs
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¡ Carte Contexte tirÃƒÆ’Ã‚Â©e
-* **Composition de l'ÃƒÆ’Ã‚Â©quipe :** 2 dÃƒÆ’Ã‚Â©veloppeurs permanents + 2 alternants (prÃƒÆ’Ã‚Â©sents 2 semaines sur 4).
-* **Contrainte d'effectif :** Les semaines de formation, seuls les 2 permanents assurent la production et les revues.
-* **Parties prenantes :**
-  * **La CEO :** Exige zÃƒÆ’Ã‚Â©ro panne majeure (plus jamais un incident comme celui d'aoÃƒÆ’Ã‚Â»t avec 14h de coupure).
-  * **Le Product Owner :** Veut des livraisons rapides et frÃƒÆ’Ã‚Â©quentes pour satisfaire les restaurateurs.
-  * **La Lead Dev :** S'inquiÃƒÆ’Ã‚Â¨te du temps passÃƒÆ’Ã‚Â© en relecture de code dans une petite ÃƒÆ’Ã‚Â©quipe.
-  * **Le DÃƒÆ’Ã‚Â©veloppeur Freelance :** PayÃƒÆ’Ã‚Â© ÃƒÆ’Ã‚Â  l'heure, refuse d'attendre passivement les revues de code.
+[![CI Pipeline](https://github.com/laetitia0218/projet_devops/actions/workflows/ci.yml/badge.svg)](https://github.com/laetitia0218/projet_devops/actions/workflows/ci.yml)
+
+Ce dépôt contient l'API minimale et la chaîne CI/CD pour une start-up mettant en relation producteurs, restaurants et particuliers. Ce projet a été construit dans le cadre du **TP DevOps Master 1**.
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ DÃƒÆ’Ã‚Â©marrage rapide en local
+## 📇 Carte Contexte tirée
+
+* **Équipe de développement :** 2 développeurs permanents + 2 alternants (présents 2 semaines sur 4).
+* **Contrainte d'effectif :** Pendant les semaines de formation, seuls les 2 permanents assurent la continuité, les revues et la production (**R1**).
+* **Attentes des parties prenantes :**
+  * **La CEO :** Plus jamais d'incident majeur comme celui d'août (14 heures de blocage un vendredi soir) (**R3**, **R5**).
+  * **Le Product Owner :** Nécessité de livrer rapidement des améliorations pour les restaurateurs.
+  * **La Lead Dev :** Éviter que les revues de code ne paralysent l'équipe réduite (**R2**).
+  * **Le Développeur Freelance :** Payé à l'heure, ne peut pas attendre passivement les validations (**R2**).
+
+---
+
+## 🚀 Démarrage rapide en local
+
+### Prérequis
+* Docker & Docker Compose
+* *(Optionnel pour tester hors Docker)* : Python 3.11+
+
+### 1. Lancer l'application et la base de données
+Cloner le dépôt et lancer les conteneurs (API FastAPI + base PostgreSQL) :
 
 ```bash
-# Cloner le dÃƒÆ’Ã‚Â©pÃƒÆ’Ã‚Â´t
 git clone https://github.com/laetitia0218/projet_devops.git
 cd projet_devops
 
-# Lancer la stack (API + Base de donnÃƒÆ’Ã‚Â©es PostgreSQL)
-docker-compose up --build
+# Lancer la base PostgreSQL et l'API
+docker-compose up --build -d
 ```
 
-L'API est accessible sur `http://localhost:8000` (route de santÃƒÆ’Ã‚Â© : `http://localhost:8000/health`).
+L'API est immédiatement disponible sur : **`http://localhost:8000`**
+
+### 2. Peupler la base avec les 1 200 produits initiaux (T5)
+Pour charger le jeu de données initial :
+
+```bash
+# Exécution du script de données initiales dans le conteneur API
+docker-compose exec api python -m app.seed
+```
+
+### 3. Lancer les tests unitaires localement
+
+```bash
+# Avec Python en local
+pytest -v
+
+# Ou directement dans le conteneur
+docker-compose exec api pytest -v
+```
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡ Documentation du projet
-* [Analyse des risques (T1)](docs/risques.md)
-* [StratÃƒÆ’Ã‚Â©gie de branches (T2)](docs/adr/0001-strategie-branches.md)
-* [RÃƒÆ’Ã‚Â¨gles de contribution et gestion (T3)](CONTRIBUTING.md)
-* [Configuration GitHub (T3)](docs/config/README.md)
+## 📡 Routes de l'API
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/health` | **Règle des 10 secondes (T3)** : renvoie l'état du service, version Git et état PostgreSQL |
+| `GET` | `/products?limit=50` | Liste paginée des produits disponibles |
+| `POST` | `/orders` | Crée une commande pour un produit (`{"product_id": 1, "quantity": 2}`) |
+| `GET` | `/docs` | Documentation interactive Swagger / OpenAPI |
+
+---
+
+## 📚 Documentation du projet
+
+L'ensemble des choix d'architecture et de gouvernance sont consignés dans les livrables suivants :
+
+* **[T1 — Analyse des risques](docs/risques.md)** : identification des 5 risques majeurs (R1 à R5), matrice gravité × effort et priorisation.
+* **[T2 — Stratégie de branches](docs/adr/0001-strategie-branches.md)** : ADR validant le choix de GitHub Flow avec déploiement par tag.
+* **[T3 — Règles de gestion & Guide de contribution](CONTRIBUTING.md)** : règles de relecture, DoD, format des branches/commits, gestion des secrets et encadrement du freelance.
+* **[T3 — Configuration GitHub](docs/config/README.md)** : protection de la branche `main` et environnements.
+* **[T4 — Conception du pipeline CI/CD](docs/pipeline.md)** : schéma du pipeline, étapes bloquantes et procédure de retour arrière (< 5 min).
