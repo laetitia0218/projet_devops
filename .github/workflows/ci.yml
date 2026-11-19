@@ -52,20 +52,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Simulate Deployment to Staging
+      # Déploiement réel de la stack (API + PostgreSQL) sur le runner, qui joue le rôle de staging
+      - name: Deploy to Staging (docker compose)
         run: |
-          echo "=========================================="
-          echo "Déploiement en cours sur l'environnement Staging..."
-          echo "Image Docker versionnée : projet-devops-api:${{ github.sha }}"
-          echo "Conteneurs démarrés avec succès."
-          echo "=========================================="
+          docker compose up -d --build
+          docker compose ps
 
-      - name: Execute Smoke Test
+      # Smoke test RÉEL : le job échoue si l'API ne répond pas ou si la base n'est pas connectée (R3, R5)
+      - name: Execute Smoke Test (GET /health)
         run: |
-          echo "=========================================="
-          echo "Exécution des Smoke Tests sur Staging..."
-          echo "Test 1 : GET /health -> Réponse 200 OK"
-          echo "Test 2 : Vérification connectivité PostgreSQL -> OK"
-          echo "Test 3 : Simulation parcours commande US-42 -> OK"
-          echo "Smoke Tests validés : prêt pour approbation production !"
-          echo "=========================================="
+          for i in $(seq 1 30); do
+            if BODY=$(curl -fsS http://localhost:8000/health); then
+              echo "Réponse /health : $BODY"
+              if echo "$BODY" | grep -q '"database":"connected"'; then
+                echo "Smoke test OK : API et base de données répondent."
+                exit 0
+              fi
+            fi
+            echo "Tentative $i/30 : service pas encore prêt..."
+            sleep 2
+          done
+          echo "::error::Smoke test KO : /health ne répond pas ou la base n'est pas connectée."
+          docker compose logs api
+          exit 1
+
+      - name: Stop staging
+        if: always()
+        run: docker compose down -v
