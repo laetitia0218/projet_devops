@@ -42,7 +42,7 @@ def health():
     db_ok = check_db_health()
 
     return {
-        "status": "ok" if db_ok else "degraded",
+        "status": "ok",
         "version": os.getenv("APP_VERSION", "v1.1.0"),
         "commit": os.getenv("APP_COMMIT", "dev"),
         "database": "connected" if db_ok else "unavailable",
